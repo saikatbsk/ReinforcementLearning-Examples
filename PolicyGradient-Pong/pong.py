@@ -9,14 +9,15 @@ batch_size = 10         # Every how many episodes to do a param update?
 gamma = 0.99            # Discount factor for reward
 decay_rate = 0.99       # Decay factor for RMSProp leaky sum of grad^2
 learning_rate = 1e-4
-render = False
+
+render = True
 resume = False
 resume_checkpoint = 100
 
 # Model initialization
 D = 80 * 80 # Input dimensionality: 80x80 grid
 if resume:
-    model = pickle.load(open('save-'+resume_checkpoint+'.p', 'rb'))
+    model = pickle.load(open('save-'+str(resume_checkpoint)+'.p', 'rb'))
 else:
     model = {}
     model['W1'] = np.random.randn(H, D) / np.sqrt(D) # "Xavier" initialization
@@ -25,18 +26,18 @@ else:
 grad_buffer = {k : np.zeros_like(v) for k,v in model.iteritems()}   # update buffers that add up gradients over a batch
 rmsprop_cache = {k : np.zeros_like(v) for k,v in model.iteritems()} # rmsprop memory
 
+def sigmoid(x):
+    """ Sigmoid "squashing" function to interval [0,1] """
+    return 1.0 / (1.0 + np.exp(-x))
+
 def preprocess(I):
     """ Preprocess 210x160x3 uint8 frame into 6400 (80x80) 1D float vector """
     I = I[35:195]       # Crop the actual playarea
     I = I[::2, ::2, 0]  # Downsample by factor of 2
     I[I == 144] = 0     # erase background (background type 1)
     I[I == 109] = 0     # erase background (background type 2)
-    I[I != 0] = 255     # everything else (paddles, ball) just set to 1
+    I[I != 0] = 1       # everything else (paddles, ball) just set to 1
     return I.astype(np.float).ravel()
-
-def sigmoid(x):
-    """ Sigmoid "squashing" function to interval [0,1] """
-    return 1.0 / (1.0 + np.exp(-1))
 
 def discount_rewards(r):
     """ Take 1D float array of rewards and compute discounted reward """
@@ -70,8 +71,8 @@ observation = env.reset()
 prev_x = None   # Used in computing the difference frame
 xs, hs, dlogps, drs = [], [], [], []
 reward_sum = 0
-episode_number = 0
 running_reward = None
+episode_number = 0 if resume == False else resume_checkpoint
 
 while True:
     if render: env.render()
