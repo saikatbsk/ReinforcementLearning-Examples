@@ -4,18 +4,23 @@ import cPickle as pickle
 import gym
 
 # Hyperparameters
-H = 200             # Number of hidden layer neurons
-batch_size = 10     # Every how many episodes to do a param update?
-gamma = 0.99        # Discount factor for reward
+H = 200                 # Number of hidden layer neurons
+batch_size = 10         # Every how many episodes to do a param update?
+gamma = 0.99            # Discount factor for reward
+decay_rate = 0.99       # Decay factor for RMSProp leaky sum of grad^2
 learning_rate = 1e-4
-decay_rate = 0.99   # decay factor for RMSProp leaky sum of grad^2
-render = True
+render = False
+resume = False
+resume_checkpoint = 100
 
 # Model initialization
 D = 80 * 80 # Input dimensionality: 80x80 grid
-model = {}
-model['W1'] = np.random.randn(H, D) / np.sqrt(D) # "Xavier" initialization
-model['W2'] = np.random.randn(H) / np.sqrt(H)
+if resume:
+    model = pickle.load(open('save-'+resume_checkpoint+'.p', 'rb'))
+else:
+    model = {}
+    model['W1'] = np.random.randn(H, D) / np.sqrt(D) # "Xavier" initialization
+    model['W2'] = np.random.randn(H) / np.sqrt(H)
 
 grad_buffer = {k : np.zeros_like(v) for k,v in model.iteritems()}   # update buffers that add up gradients over a batch
 rmsprop_cache = {k : np.zeros_like(v) for k,v in model.iteritems()} # rmsprop memory
@@ -126,10 +131,10 @@ while True:
         # Book-keeping
         running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
         print 'Resetting env. Episode reward total was %f. Running mean: %f' % (reward_sum, running_reward)
-        if episode_number % 100 == 0: pickle.dump(model, open('save.p', 'wb'))
+        if episode_number % 100 == 0: pickle.dump(model, open('save-'+str(episode_number)+'.p', 'wb'))
         reward_sum = 0
         observation = env.reset() # Reset env
         prev_x = None
 
     if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
-        print ('ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
+        print ('Ep %d: game finished, reward: %f' % (episode_number, reward)) + ('' if reward == -1 else ' !!!!!!!!')
